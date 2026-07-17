@@ -28,9 +28,9 @@ services:
     name: prism-oracle-mcp
     runtime: docker
     plan: free
-    dockerfilePath: ./oracle-property-intelligence-platform-pipeline-completion/deploy/mcp/Dockerfile
+    dockerfilePath: ./docker/oracle-mcp.Dockerfile
     dockerContext: ./oracle-property-intelligence-platform-pipeline-completion
-    dockerCommand: bash -c 'mkdir -p /app/data; if [ -n "${PARQUET_URL:-}" ] || [ -n "${PARQUET_S3_URI:-}" ]; then /app/deploy/fetch-artifacts.sh || true; fi; exec node start.mjs'
+    dockerCommand: bash -c 'mkdir -p /app/data; if [ -n "${PARQUET_URL:-}" ]; then curl -fsSL "$PARQUET_URL" -o /app/data/properties.parquet || true; fi; exec node start.mjs'
     envVars:
       - key: COUNTY
         value: santa-clara
@@ -41,10 +41,10 @@ services:
     name: prism-oracle-ui
     runtime: docker
     plan: free
-    dockerfilePath: ./oracle-property-intelligence-platform-pipeline-completion/deploy/ui/Dockerfile
+    dockerfilePath: ./docker/oracle-ui.Dockerfile
     dockerContext: ./oracle-property-intelligence-platform-pipeline-completion
     healthCheckPath: /
-    dockerCommand: bash -c 'mkdir -p /app/data; if [ -n "${PARQUET_URL:-}" ] || [ -n "${PARQUET_S3_URI:-}" ]; then /app/deploy/fetch-artifacts.sh || true; fi; export UI_BASE_URL="${UI_BASE_URL:-$RENDER_EXTERNAL_URL}"; if [ -n "${MCP_ORIGIN:-}" ]; then export MCP_BASE_URL="${MCP_ORIGIN%/}/mcp"; fi; exec gunicorn --bind 0.0.0.0:${PORT:-3000} --workers 1 --threads 2 ui.app:app'
+    dockerCommand: bash -c 'mkdir -p /app/data; if [ -n "${PARQUET_URL:-}" ]; then curl -fsSL "$PARQUET_URL" -o /app/data/properties.parquet || true; fi; export UI_BASE_URL="${UI_BASE_URL:-$RENDER_EXTERNAL_URL}"; if [ -n "${MCP_ORIGIN:-}" ]; then export MCP_BASE_URL="${MCP_ORIGIN%/}/mcp"; fi; exec gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 1 --threads 2 ui.app:app'
     envVars:
       - key: MCP_ORIGIN
         fromService:
