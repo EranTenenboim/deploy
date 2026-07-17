@@ -1,0 +1,8 @@
+[submodule "chief-of-staff-communication-agent"]
+	path = chief-of-staff-communication-agent
+	url = git@github.com:EranTenenboim/chief-of-staff-communication-agent.git
+	branch = eran/indeedee-chief-of-staff
+[submodule "oracle-property-intelligence-platform-pipeline-completion"]
+	path = oracle-property-intelligence-platform-pipeline-completion
+	url = git@github.com:EranTenenboim/oracle-property-intelligence-platform-pipeline-completion.git
+	branch = eran/property_pipeline

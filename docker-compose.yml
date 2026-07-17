@@ -1,0 +1,102 @@
+# Run both Prism solutions on different host ports:
+#   Chief of Staff (Indeedee)  → http://localhost:8787
+#   Oracle Property UI         → http://localhost:3000
+#   Oracle Property MCP        → http://localhost:8000/mcp
+#
+# Usage:
+#   docker compose up --build
+#
+# Oracle needs data/properties.parquet (run pipeline once, or set PARQUET_URL):
+#   cd oracle-property-intelligence-platform-pipeline-completion && ./scripts/run.sh pipeline
+
+services:
+  indeedee:
+    build:
+      context: ./chief-of-staff-communication-agent
+      dockerfile: Dockerfile
+    ports:
+      - "${INDEEDEE_PORT:-8787}:8787"
+    environment:
+      PORT: "8787"
+      API_BASE_URL: "${INDEEDEE_API_BASE_URL:-http://localhost:8787}"
+      INDEEDEE_SSO_ENABLED: "${INDEEDEE_SSO_ENABLED:-false}"
+      INDEEDEE_BRAIN_MODE: "${INDEEDEE_BRAIN_MODE:-rules}"
+      INDEEDEE_DB_URL: file:/app/data/indeedee.db
+      SYNC_INTERVAL_MS: "${SYNC_INTERVAL_MS:-0}"
+      AWS_REGION: "${AWS_REGION:-us-east-2}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      ASANA_PAT: "${ASANA_PAT:-}"
+      ASANA_WORKSPACE_GID: "${ASANA_WORKSPACE_GID:-}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      INDEEDEE_SECRETS_BACKEND: "${INDEEDEE_SECRETS_BACKEND:-local}"
+      INDEEDEE_SECRETS_KEY: "${INDEEDEE_SECRETS_KEY:-}"
+    volumes:
+      - indeedee-data:/app/data
+    restart: unless-stopped
+
+  oracle-ui:
+    build:
+      context: ./oracle-property-intelligence-platform-pipeline-completion
+      dockerfile: deploy/ui/Dockerfile
+    ports:
+      - "${ORACLE_WEB_PORT:-3000}:3000"
+    environment:
+      WEB_PORT: "3000"
+      UI_BASE_URL: "${UI_BASE_URL:-http://localhost:3000}"
+      MCP_BASE_URL: "${MCP_BASE_URL:-http://localhost:8000/mcp}"
+      PARQUET_PATH: /app/data/properties.parquet
+      RUN_SUMMARY_PATH: /app/data/run_summary.json
+      MANIFEST_PATH: /app/manifest.json
+      PARQUET_S3_URI: "${PARQUET_S3_URI:-}"
+      PARQUET_URL: "${PARQUET_URL:-}"
+      RUN_SUMMARY_S3_URI: "${RUN_SUMMARY_S3_URI:-}"
+      MANIFEST_S3_URI: "${MANIFEST_S3_URI:-}"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+    volumes:
+      - ./oracle-property-intelligence-platform-pipeline-completion/data:/app/data
+      - ./oracle-property-intelligence-platform-pipeline-completion/manifest.json:/app/manifest.json:ro
+    command:
+      - /bin/bash
+      - -c
+      - |
+        mkdir -p /app/data
+        if [[ -n "${PARQUET_S3_URI:-}" || -n "${PARQUET_URL:-}" ]]; then
+          /app/deploy/fetch-artifacts.sh
+        elif [[ ! -f /app/data/properties.parquet ]]; then
+          echo "WARNING: properties.parquet missing — start UI anyway."
+          echo "  Run: cd oracle-property-intelligence-platform-pipeline-completion && ./scripts/run.sh pipeline"
+          echo "  Or set PARQUET_URL / PARQUET_S3_URI."
+        fi
+        exec gunicorn --bind 0.0.0.0:3000 --workers 2 --threads 4 ui.app:app
+    restart: unless-stopped
+
+  oracle-mcp:
+    build:
+      context: ./oracle-property-intelligence-platform-pipeline-completion
+      dockerfile: deploy/mcp/Dockerfile
+    ports:
+      - "${ORACLE_MCP_PORT:-8000}:8000"
+    environment:
+      MCP_PORT: "8000"
+      PORT: "8000"
+      COUNTY: "${COUNTY:-santa-clara}"
+      PARQUET_PATH: /app/data/properties.parquet
+      PARQUET_S3_URI: "${PARQUET_S3_URI:-}"
+      PARQUET_URL: "${PARQUET_URL:-}"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+    volumes:
+      - ./oracle-property-intelligence-platform-pipeline-completion/data:/app/data:ro
+    command:
+      - /bin/bash
+      - -c
+      - |
+        if [[ -n "${PARQUET_S3_URI:-}" || -n "${PARQUET_URL:-}" ]]; then
+          /app/deploy/fetch-artifacts.sh || true
+        fi
+        exec node start.mjs
+    restart: unless-stopped
+
+volumes:
+  indeedee-data:
