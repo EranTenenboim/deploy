@@ -1,0 +1,80 @@
+# Free-tier Render Blueprint for both Prism solutions.
+# Dashboard: New → Blueprint → connect EranTenenboim/deploy
+#
+# After first deploy, set PARQUET_URL (public HTTPS to properties.parquet)
+# on prism-oracle-ui and prism-oracle-mcp, then Manual Deploy → Deploy latest.
+#
+# Limits: services sleep after ~15m idle; no persistent disks; 512MB RAM each.
+
+services:
+  - type: web
+    name: prism-indeedee
+    runtime: docker
+    plan: free
+    dockerfilePath: ./chief-of-staff-communication-agent/Dockerfile
+    dockerContext: ./chief-of-staff-communication-agent
+    healthCheckPath: /
+    envVars:
+      - key: INDEEDEE_SSO_ENABLED
+        value: "false"
+      - key: INDEEDEE_BRAIN_MODE
+        value: rules
+      - key: INDEEDEE_DB_URL
+        value: file:/app/data/indeedee.db
+      - key: SYNC_INTERVAL_MS
+        value: "0"
+      - key: API_BASE_URL
+        fromService:
+          name: prism-indeedee
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: prism-oracle-ui
+    runtime: docker
+    plan: free
+    dockerfilePath: ./oracle-property-intelligence-platform-pipeline-completion/deploy/ui/Dockerfile
+    dockerContext: ./oracle-property-intelligence-platform-pipeline-completion
+    healthCheckPath: /
+    dockerCommand: bash -c 'mkdir -p /app/data; if [ -n "${PARQUET_URL:-}" ] || [ -n "${PARQUET_S3_URI:-}" ]; then /app/deploy/fetch-artifacts.sh || true; fi; if [ -n "${MCP_ORIGIN:-}" ]; then export MCP_BASE_URL="${MCP_ORIGIN%/}/mcp"; fi; exec gunicorn --bind 0.0.0.0:${PORT:-3000} --workers 1 --threads 2 ui.app:app'
+    envVars:
+      - key: UI_BASE_URL
+        fromService:
+          name: prism-oracle-ui
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: MCP_ORIGIN
+        fromService:
+          name: prism-oracle-mcp
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: PARQUET_PATH
+        value: /app/data/properties.parquet
+      - key: RUN_SUMMARY_PATH
+        value: /app/data/run_summary.json
+      - key: MANIFEST_PATH
+        value: /app/manifest.json
+      - key: COUNTY
+        value: santa-clara
+      - key: PARQUET_URL
+        sync: false
+      - key: PARQUET_S3_URI
+        sync: false
+
+  - type: web
+    name: prism-oracle-mcp
+    runtime: docker
+    plan: free
+    dockerfilePath: ./oracle-property-intelligence-platform-pipeline-completion/deploy/mcp/Dockerfile
+    dockerContext: ./oracle-property-intelligence-platform-pipeline-completion
+    healthCheckPath: /mcp
+    dockerCommand: bash -c 'mkdir -p /app/data; if [ -n "${PARQUET_URL:-}" ] || [ -n "${PARQUET_S3_URI:-}" ]; then /app/deploy/fetch-artifacts.sh || true; fi; exec node start.mjs'
+    envVars:
+      - key: COUNTY
+        value: santa-clara
+      - key: PARQUET_PATH
+        value: /app/data/properties.parquet
+      - key: PARQUET_URL
+        sync: false
+      - key: PARQUET_S3_URI
+        sync: false
