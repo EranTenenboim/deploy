@@ -28,7 +28,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./docker/oracle-mcp.Dockerfile
-    dockerContext: ./oracle-property-intelligence-platform-pipeline-completion
+    dockerContext: .
     envVars:
       - key: COUNTY
         value: santa-clara
@@ -40,7 +40,7 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./docker/oracle-ui.Dockerfile
-    dockerContext: ./oracle-property-intelligence-platform-pipeline-completion
+    dockerContext: .
     healthCheckPath: /
     envVars:
       - key: MCP_ORIGIN
@@ -48,11 +48,13 @@ services:
           name: prism-oracle-mcp
           type: web
           envVarKey: RENDER_EXTERNAL_URL
+      - key: COUNTY
+        value: santa-clara
       - key: PARQUET_PATH
         value: /app/data/properties.parquet
       - key: RUN_SUMMARY_PATH
         value: /app/data/run_summary.json
       - key: MANIFEST_PATH
         value: /app/manifest.json
-      - key: COUNTY
-        value: santa-clara
+      - key: ORACLE_DEMO_MODE
+        value: "1"
