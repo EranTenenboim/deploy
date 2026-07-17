@@ -11,6 +11,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ui/ ui/
+COPY pipeline/ pipeline/
+COPY config/ config/
 COPY manifest.json /app/manifest.json
 
 RUN mkdir -p /app/data \
@@ -25,6 +27,7 @@ RUN mkdir -p /app/data \
   'if [ -n "${MCP_ORIGIN:-}" ]; then' \
   '  export MCP_BASE_URL="${MCP_ORIGIN%/}/mcp"' \
   'fi' \
+  'export PYTHONPATH=/app' \
   'exec gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 1 --threads 2 ui.app:app' \
   > /app/entrypoint.sh \
  && chmod +x /app/entrypoint.sh
@@ -32,7 +35,8 @@ RUN mkdir -p /app/data \
 ENV DATA_DIR=/app/data \
     PARQUET_PATH=/app/data/properties.parquet \
     RUN_SUMMARY_PATH=/app/data/run_summary.json \
-    MANIFEST_PATH=/app/manifest.json
+    MANIFEST_PATH=/app/manifest.json \
+    PYTHONPATH=/app
 
 EXPOSE 10000
 
