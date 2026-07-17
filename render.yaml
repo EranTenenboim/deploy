@@ -67,7 +67,6 @@ services:
     plan: free
     dockerfilePath: ./oracle-property-intelligence-platform-pipeline-completion/deploy/mcp/Dockerfile
     dockerContext: ./oracle-property-intelligence-platform-pipeline-completion
-    healthCheckPath: /mcp
     dockerCommand: bash -c 'mkdir -p /app/data; if [ -n "${PARQUET_URL:-}" ] || [ -n "${PARQUET_S3_URI:-}" ]; then /app/deploy/fetch-artifacts.sh || true; fi; exec node start.mjs'
     envVars:
       - key: COUNTY
