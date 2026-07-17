@@ -13,7 +13,21 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ui/ ui/
 COPY manifest.json /app/manifest.json
 
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data \
+ && printf '%s\n' \
+  '#!/bin/sh' \
+  'set -eu' \
+  'mkdir -p /app/data' \
+  'if [ -n "${PARQUET_URL:-}" ]; then' \
+  '  curl -fsSL "$PARQUET_URL" -o /app/data/properties.parquet || true' \
+  'fi' \
+  'export UI_BASE_URL="${UI_BASE_URL:-${RENDER_EXTERNAL_URL:-http://localhost:10000}}"' \
+  'if [ -n "${MCP_ORIGIN:-}" ]; then' \
+  '  export MCP_BASE_URL="${MCP_ORIGIN%/}/mcp"' \
+  'fi' \
+  'exec gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 1 --threads 2 ui.app:app' \
+  > /app/entrypoint.sh \
+ && chmod +x /app/entrypoint.sh
 
 ENV DATA_DIR=/app/data \
     PARQUET_PATH=/app/data/properties.parquet \
@@ -22,4 +36,4 @@ ENV DATA_DIR=/app/data \
 
 EXPOSE 10000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--workers", "1", "--threads", "2", "ui.app:app"]
+CMD ["/app/entrypoint.sh"]
